@@ -1,65 +1,75 @@
 #define BLYNK_PRINT Serial
-#define BLYNK_TEMPLATE_ID "TMPLBPruhWj0"
-#define BLYNK_DEVICE_NAME "Irigasi Tebu"
-
-#include <ESP8266_Lib.h>
-#include <BlynkSimpleShieldEsp8266.h>
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16,2);
+#include <LiquidCrystal_I2C.h> 
 
-const int pinDigital = A0;
-int sensor_pin = A0;
-int output_value;
-String response;
-//char auth[] = "St2wGt1R3Gx3eKv14WRYxbzRCJPHZSdZ";
+LiquidCrystal_I2C lcd(0x27,16,2);
+WidgetLCD lcd_blynk(V1);
+WidgetTerminal terminal(V0);
 
-int motorPin = A3;
-int watertime = 5;
-int waittime = 60;
+const int SoilSensor = A0;
+int pumpPin = D5;
 
-//char ssid[] = "ssid wifi";
-//char pass[] = "pass wifi";
+char auth[] = "DeawhLk4NLGVnoOwoJ_WAXANpY2Mp93n";
+char ssid[] = "tebu";
+char pass[] = "@irigasi";
 
-#define EspSerial Serial1
-#define ESP8266_BAUD 38400
-ESP8266 wifi(&EspSerial);
-
-void setup(){
+void setup() {
+  // initialize digital pin A5 as an output.
+  Serial.begin(9600);
+  pinMode(pumpPin, OUTPUT);
+  Blynk.begin(auth, ssid, pass);
   lcd.init();
   lcd.backlight();
-  Serial.begin (9600);
-  pinMode(pinDigital, INPUT);
-  pinMode(motorPin, OUTPUT);
+  lcd_blynk.clear();
+  lcd.clear();
+  }
 
-  //EspSerial.begin(ESP8266_BAUD);
-  //delay(10);
-  //Blynk.begin(auth, ssid, pass);
-}
-
-void loop() {
-  int dataAnalog = analogRead (pinDigital);
-  output_value= analogRead(sensor_pin);
-  int output_value2 = map(output_value,1023,0,0,100);
-
-  //Blynk.run();
-  
-  lcd.setCursor(0,0);
-  lcd.print("KLBPN TANAH :");
-  lcd.print(output_value2);
-  lcd.println("% ");
-  
-  if (dataAnalog <=512) {
+void loop(){
+  lcd.clear();
+  int kelembabanTanah;
+  int hasilPembacaan = analogRead(SoilSensor);
+  kelembabanTanah = map(hasilPembacaan,900,295,0,100); 
+    if (kelembabanTanah<60){
+      lcd.setCursor(0,0);
+      lcd.print("Kelembaban: ");
+      lcd.print(kelembabanTanah);
+      lcd.print("%");
       lcd.setCursor(0,1);
-      //Blynk.notify("Tanah basah. Penyiraman dihentikan")
-      lcd.println("TANAH BASAH ");
-      digitalWrite(motorPin, LOW);}
-      //delay(waittime*1000);
-  else {
+      lcd.print("Mulai Siram");
+      
+      lcd_blynk.print(0,0, "Kelembapan: ");
+      lcd_blynk.print(12,0, kelembabanTanah);
+      lcd_blynk.print(15,0, "%");
+      lcd_blynk.print(0,1, "Mulai siram");
+      Blynk.notify("Tanaman kering, penyiraman dilakukan!");
+
+      digitalWrite(pumpPin, HIGH); 
+      delay(10000);
+      Blynk.virtualWrite(D5, HIGH); 
+      delay (1000); 
+      if(kelembabanTanah==100){
+        digitalWrite(pumpPin, LOW);
+        Blynk.virtualWrite(D5, LOW);
+        delay(1000);
+      }     
+    } else {
+      lcd.setCursor(0,0);
+      lcd.print("Kelembaban: ");
+      lcd.print(kelembabanTanah);
+      lcd.print("%");
       lcd.setCursor(0,1);
-      //Blynk.notify("Tanah kering. Penyiraman dilakukan");
-      lcd.println("TANAH KERING ");
-      digitalWrite(motorPin, HIGH); // turn on the motor
-      delay(watertime*500);}
-}
+      lcd.print("Henti Siram");
+      
+      lcd_blynk.print(0,0, "Kelembaban: ");
+      lcd_blynk.print(12,0, kelembabanTanah);
+      lcd_blynk.print(15,0, "%");
+      lcd_blynk.print(0,1, "Henti siram");
+      Blynk.notify("Tanaman lembab, penyiraman dihentikan!");
+      
+      digitalWrite(pumpPin, LOW);
+      Blynk.virtualWrite(D5, LOW);
+      delay(1000);
+    }}
